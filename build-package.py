@@ -7,6 +7,7 @@ if stage.exists():shutil.rmtree(stage)
 (stage/'payload/bin').mkdir(parents=True)
 shutil.copy2(root/'.agents/repo-sync',stage/'payload/bin/repo-sync')
 shutil.copytree(root/'ui',stage/'payload/ui',dirs_exist_ok=True)
+(stage/'payload/ui/images').mkdir(parents=True,exist_ok=True)
 # Only an inert legacy entry point is public. Real UI/assets require DSM auth.
 (stage/'payload/ui/index.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=index.cgi"><title>앱 로그인 확인</title><body><a href="index.cgi">앱 로그인 후 열기</a></body></html>',encoding='utf-8')
 for f in ('app.js','style.css','dantami-app.css'):
