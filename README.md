@@ -1,41 +1,128 @@
 # Dantami Repo Sync
 
-**English** · [한국어](README.ko.md)
+**English** · [한국어](README.ko.md) · [Download installer](https://github.com/momopanda123/dantami-repo-sync/releases/latest) · [All versions](https://github.com/momopanda123/dantami-repo-sync/releases)
 
-Manage GitHub ↔ Gitea repository synchronization from a Synology DSM dashboard.
+Connect GitHub and Gitea, check their differences, then keep selected repository pairs in sync from your Synology NAS.
 
-- Multiple repository pairs; bidirectional or one-way synchronization
-- A dashboard for status, schedules, conflicts, history and connection management
-- Independent app accounts with administrator and read-only viewer roles
-- Korean / English language switching on the login page and dashboard
-- No remote deletion, force push or automatic conflict merge
+![Repository dashboard with status counters and individual sync controls](docs/images/00-dashboard.png)
 
-## Install
+> These are real Korean-language screenshots from v1.4.1, cropped for clarity. Account and repository identifiers were replaced with examples; no access tokens are shown. v1.5.0 adds a Korean/English selector that is not present in these older screenshots. The guide below uses current English button names, with Korean labels where useful.
 
-Download the `.spk` from [Releases](https://github.com/momopanda123/dantami-repo-sync/releases).
-Supported target: **DSM 7, Intel/AMD x86_64**. ARM NAS models and DSM 6 are not supported.
+## Before you start
 
-1. Open **Package Center → Manual Install** and select the SPK. Upgrade an existing installation without uninstalling it.
-2. On first installation, create an app administrator in the installation wizard. This account is separate from DSM.
-3. Open the app over **HTTPS** and sign in. Existing app accounts are preserved on subsequent upgrades.
-4. Use the language selector at the top right to choose **한국어** or **English**. The selection is saved in this browser. Switching language reloads the page and warns about unsaved password/token input.
+- A **Synology NAS running DSM 7 on Intel/AMD x86_64**, accessible over HTTPS
+- An existing GitHub repository and an existing Gitea repository to pair
+- A GitHub token and a Gitea token for the intended repositories
+- Decide whether to synchronize both ways or in one direction. Review differences before enabling automatic sync
 
-Usernames accept 3–40 letters, numbers, dots, underscores or hyphens. Passwords must be 12–72 bytes and match the confirmation.
-There is no public first-user registration endpoint. If no initial app administrator is configured, the service fails closed.
+**Three different credentials:** your **app account** signs you into Dantami Repo Sync; the **GitHub token** connects GitHub; the **Gitea token and username** connect Gitea. Your DSM password is not the app password.
 
-## Connect repositories
+## 1. Install and sign in
 
-1. Open **Connections** and enter your Gitea HTTPS server root URL and Gitea username.
-2. Create and enter your GitHub and Gitea access tokens. Keep tokens private and grant only required access.
-   - GitHub: use a fine-grained token for selected repositories, with **Contents: Read and write**. Add **Workflows: Read and write** if you sync workflow files.
-   - Gitea: repository read/write access is required. Ordinary personal tokens are based on the account's access. Use a dedicated limited-access Gitea account when repository-level isolation is needed.
-3. Confirm private NAS storage and select **Save connection and load repositories**.
-4. Select both repositories and the direction under **Connect repositories**.
-5. Run **Check connection**, review the result, then enable automatic sync.
+1. Download the `.spk` under **Assets** on the [latest release](https://github.com/momopanda123/dantami-repo-sync/releases/latest).
+2. In DSM, select **Package Center → Manual Install** and choose the file. Upgrade an existing installation without uninstalling it.
+3. When first prompted, create an **app administrator** in the installer. Use that app account to sign in over HTTPS.
+4. On v1.5.0 or later, choose **English** or **한국어** at the top right. The choice is saved in this browser.
 
-New installations start with an empty list. No personal server, username or repository is preconfigured.
-Local Gitea discovery can identify servers on the NAS's loopback interface. Manually entered servers must use HTTPS and must not have a URL subpath.
-Changing servers requires re-entering the Gitea token rather than silently reusing it for a new destination.
+![App login form, separate from DSM authentication](docs/images/01-sign-in.png)
+
+**Expected result:** the dashboard opens. A new installation starts with no connected repositories. Existing app accounts are preserved when upgrading.
+
+## 2. Create the two access tokens
+
+### GitHub
+
+1. Open [Fine-grained personal access tokens](https://github.com/settings/personal-access-tokens/new).
+2. Give the token a recognizable name, such as **Dantami Repo Sync**, and choose an expiry.
+3. Select the correct **Resource owner**.
+4. Under **Repository access**, choose **Only select repositories** and select the repositories to synchronize.
+5. Grant **Contents → Read and write**. If you synchronize `.github/workflows` files, also grant **Workflows → Read and write**.
+6. Select **Generate token**, copy it, and enter it only in the app's GitHub token field.
+
+### Gitea
+
+1. Sign in to **your own Gitea server** and open **Settings → Applications** (`/user/settings/applications`).
+2. Choose **Generate New Token**, name it, and grant **repository → Read and Write** with access to private repositories if needed.
+3. Copy the generated value into the app's Gitea token field. UI wording can vary by Gitea version.
+
+> Ordinary Gitea personal tokens are based on the account's repository access, rather than GitHub's selected-repository model. For strict isolation, use a dedicated Gitea account granted write access only to the intended repositories. Hiding entries in this app does not reduce the token's actual permissions.
+
+Never paste real tokens into issues, screenshots or README files. They may only be shown once when created.
+
+## 3. Save the GitHub and Gitea connections
+
+Open **Connections (계정 연결)** from the left menu.
+
+![Connection form with an anonymized Gitea username and no exposed tokens](docs/images/02-connections.png)
+
+1. Enter your **Gitea server URL**, such as `https://git.example.com`, and your **Gitea username**.
+2. Enter the GitHub and Gitea tokens in their respective fields.
+3. Select the checkbox consenting to private storage on the NAS.
+4. Click **Save connection and load repositories (연결 저장 · 목록 불러오기)**.
+
+**Expected result:** tokens show as saved and repository lists load after access checks.
+
+**About the local address in the screenshot:** `127.0.0.1` means the NAS itself, not your PC. Use **Find Gitea on this NAS** to select a verified local endpoint, or enter your own HTTPS server URL. Do not blindly copy the example address. Once a token is saved, its field stays blank unless you are replacing it.
+
+## 4. Pair the repositories
+
+Click **Connect repositories (저장소 연결)** at the top right.
+
+![Repository pairing dialog with anonymized example repository paths](docs/images/03-pair-repositories.png)
+
+1. Refresh the lists if needed.
+2. Select the GitHub repository on the left and the matching Gitea repository on the right. The two names do not have to be identical.
+3. Choose a direction:
+   - **Bidirectional:** new work on either side is considered for the other
+   - **GitHub → NAS:** GitHub is the source
+   - **NAS → GitHub:** Gitea on the NAS is the source
+4. Click **Add connection (연결 추가)**.
+
+**Expected result:** a new card appears on the dashboard, with automatic sync initially off.
+
+The screenshot shows repositories that are **already connected**. For a new pair, select an unused repository; already-connected entries cannot be registered again. If only one repository is permitted by a GitHub token, only the verified candidate should appear. Several Gitea entries can be normal for an account-wide token.
+
+## 5. Check first, then enable synchronization
+
+On the new card, select **Check connection (연결 확인)**. This compares repositories without applying changes. Review the result in **Details (상세 보기)** before enabling automatic sync.
+
+![Close-up of a healthy connection card and its management controls](docs/images/04-sync-controls.png)
+
+This screenshot shows a connection whose check is already complete and automatic sync is enabled, so its buttons read **Sync now** and **Pause** rather than the initial **Check connection** and **Enable automatic sync**.
+
+| Control / status | What it means |
+| --- | --- |
+| Check connection | Compare without changing remote repositories |
+| Sync now | Request synchronization immediately |
+| Enable automatic sync / Pause | Start or pause scheduled jobs |
+| Details | Review branches, tags, conflicts, history, direction and interval |
+| Remove connection | Confirm removal of app settings/cache/history; remote repositories remain |
+| Healthy | The completed check found the pair in a healthy state |
+| Needs attention / conflict | Review the affected references; do not force-overwrite them |
+
+The NAS and package must remain running for scheduled jobs. Closing the browser does not stop the service. Branch divergence and conflicting tags require review; the app does not delete remote refs, force push or automatically merge conflicts.
+
+## If something does not work
+
+Open **Diagnostics (실행 진단)** to check the app's service and private storage.
+
+![NAS diagnostic checks; these do not prove remote repository access](docs/images/05-diagnostics.png)
+
+| Symptom | First check |
+| --- | --- |
+| Cannot sign in | Use the app account created during installation, in an HTTPS browser session |
+| Repository missing | Check token access/expiry, then refresh the repository lists |
+| Gitea shows many repositories | Check the Gitea account's effective access; this may be expected |
+| Token saved but connection fails | Check server URL, certificate, NAS network access and token permissions |
+| Conflict appears | Open Details and review the branches/tags; automatic merging is not performed |
+| Diagnostics pass but sync fails | Local service health does not prove remote access; review token and repository errors |
+
+For support, share the app version, failing step and error message. Hide tokens, usernames, private server URLs and private repository names in screenshots.
+
+---
+
+<details>
+<summary>Advanced behavior, security, build instructions and license</summary>
 
 ## Access checks
 
@@ -91,3 +178,5 @@ Installation and synchronization have been reported working on an initial deploy
 ## License
 
 [MIT](LICENSE) · Copyright © 2026 momopanda123
+
+</details>
