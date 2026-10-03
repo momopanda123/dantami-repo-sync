@@ -3,6 +3,15 @@
 Published version tags and installer assets are retained. New versions are added as separate releases; existing releases are not overwritten.
 배포된 버전의 태그와 설치파일을 보존하며 새 버전은 별도 릴리즈로 추가합니다.
 
+## v1.6.0
+
+- Add a discoverable Settings menu with Korean/English language selection and installed version
+- Persist browser-only dashboard refresh and new-connection defaults; add a manual Refresh button
+- Let new connections override their initial interval without modifying existing pairs or enabling sync
+- Keep login language switching and add a one-year language preference cookie
+- Improve compact navigation and verify cancellation, storage failures, read-only-user access, and bilingual UI
+- 설정 메뉴·언어 전환·화면 갱신 간격·새 연결 기본값 추가. 기존 연결과 자동 실행 상태는 변경하지 않음
+
 ## Documentation updates after v1.5.0
 
 - Illustrated English/Korean quickstart using anonymized real-use screenshots

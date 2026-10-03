@@ -401,6 +401,10 @@ func (a *App) handler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "/add":
+		if req.Interval < 0 || req.Interval > 1440 {
+			fail(w, 400, "자동 확인 간격을 확인해 주세요")
+			return
+		}
 		if a.discovering || a.repoVerifiedAt.IsZero() || time.Since(a.repoVerifiedAt) > 5*time.Minute {
 			fail(w, 409, "저장소 목록을 새로 불러와 접근 권한을 확인해 주세요")
 			return
@@ -439,6 +443,9 @@ func (a *App) handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p := newPair(hex.EncodeToString(id[:]), req.GithubRepo, req.GiteaRepo, req.Direction)
+		if req.Interval != 0 {
+			p.Interval = req.Interval
+		}
 		a.state.Pairs = append(a.state.Pairs, p)
 		if a.save() != nil {
 			a.state.Pairs = a.state.Pairs[:len(a.state.Pairs)-1]

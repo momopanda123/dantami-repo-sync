@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -287,5 +288,36 @@ func TestRemoveRequiresConfirmationAndCleansOnlyOwnCache(t *testing.T) {
 	}
 	if w := post(t, a, "/delete", map[string]any{"id": "../../other", "consent": true}); w.Code != 404 {
 		t.Fatal(w.Code)
+	}
+}
+
+func TestNewConnectionIntervalPreference(t *testing.T) {
+	for _, interval := range []int{0, 1, 3, 5, 15, 60, 1440, -1, 1441} {
+		t.Run(fmt.Sprint(interval), func(t *testing.T) {
+			a := seeded(t)
+			old := a.state.Pairs[0].Interval
+			w := post(t, a, "/add", map[string]any{"github_repo": "me/alpha", "gitea_repo": "nas/alpha", "direction": "github_to_gitea", "interval": interval})
+			if interval < 0 || interval > 1440 {
+				if w.Code != 400 || len(a.state.Pairs) != 1 {
+					t.Fatal(w.Code, w.Body)
+				}
+				return
+			}
+			if w.Code != 200 {
+				t.Fatal(w.Code, w.Body)
+			}
+			want := interval
+			if want == 0 {
+				want = 3
+			}
+			p := a.state.Pairs[1]
+			if p.Interval != want || p.Enabled || p.Checked || p.Direction != "github_to_gitea" || a.state.Pairs[0].Interval != old {
+				t.Fatal(p)
+			}
+			loaded, err := newApp(a.dir)
+			if err != nil || loaded.state.Pairs[1].Interval != want {
+				t.Fatal(err)
+			}
+		})
 	}
 }

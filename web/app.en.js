@@ -2,6 +2,24 @@
 const $=id=>document.getElementById(id);
 let csrf='',state=null,filter='all',detailId='',repoVersion=-1,detectVersion=-1,refreshSeq=0,refreshing=false;
 const pending=new Set();const secure=location.protocol==='https:';
+const preferenceDefaults={refresh:4,direction:'both',interval:3};
+const preferenceKey='DantamiRepoSync.preferences.v1';
+function normalizePreferences(value){const p=value&&typeof value==='object'?value:{};return{refresh:[0,4,10,30,60].includes(p.refresh)?p.refresh:4,direction:['both','github_to_gitea','gitea_to_github'].includes(p.direction)?p.direction:'both',interval:[1,3,5,15,60,1440].includes(p.interval)?p.interval:3}}
+function loadPreferences(){try{return normalizePreferences(JSON.parse(localStorage.getItem(preferenceKey)))}catch{return{...preferenceDefaults}}}
+let preferences=loadPreferences(),refreshTimer=null;
+function scheduleRefresh(){if(refreshTimer!==null)clearInterval(refreshTimer);refreshTimer=null;if(secure&&preferences.refresh>0)refreshTimer=setInterval(()=>{if(!document.hidden)refresh()},preferences.refresh*1000)}
+function fillSettings(p,lang){$('languageSelect').value=lang;$('refreshInterval').value=String(p.refresh);$('defaultDirection').value=p.direction;$('defaultInterval').value=String(p.interval)}
+function openSettings(){fillSettings(preferences,document.documentElement.lang==='en'?'en':'ko');clearMessage('settingsMessage');if(!$('settingsModal').open)$('settingsModal').showModal()}
+function saveSettings(){
+ const lang=$('languageSelect').value,language=window.DantamiLanguage;
+ if(pending.size||usersBusy){$('settingsMessage').textContent="Wait for the current request to finish before saving settings.";return}
+ if(!language||!language.confirmChange(lang))return;
+ const next=normalizePreferences({refresh:Number($('refreshInterval').value),direction:$('defaultDirection').value,interval:Number($('defaultInterval').value)});
+ let previous=null;try{previous=localStorage.getItem(preferenceKey);localStorage.setItem(preferenceKey,JSON.stringify(next));if(!language.save(lang))throw Error('cookie')}catch{try{if(previous===null)localStorage.removeItem(preferenceKey);else localStorage.setItem(preferenceKey,previous)}catch{}$('settingsMessage').textContent="Browser storage is blocked. Allow cookies and site storage to save settings.";return}
+ preferences=next;scheduleRefresh();$('settingsModal').close();
+ if(lang!==language.current){location.reload();return}
+ note("Settings saved. Existing repository connections are unchanged.");refresh();
+}
 const names={idle:"Not checked",healthy:"Healthy",pending:"Changes pending",checking:"Checking",syncing:"Syncing",queued:"Queued",conflict:"Review conflict",error:"Connection error",paused:"Paused"};
 const directions={both:"⇄ Bidirectional",github_to_gitea:'→ GitHub → NAS',gitea_to_github:'← NAS → GitHub'};
 function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
@@ -28,7 +46,7 @@ async function refresh(){if(refreshing)return;refreshing=true;const seq=++refres
 async function action(name,body={}){const key=body.id||name;if(pending.has(key))return false;pending.add(key);refreshSeq++;if(state)draw(state);try{const result=await api(name,body);if(name==='delete'){if($('detailModal').open)$('detailModal').close();note(result.warning||"Connection and local cache removed. Remote repositories are unchanged",!!result.warning)}else if(name==='save'){$('gh').value='';$('gt').value='';note("Tokens saved. Loading repositories")}else if(name==='add'){$('addModal').close();note("Repositories connected. Select Check connection on the card")}else if(name==='update'){note("Settings saved. Check the connection before enabling automatic sync")}else if(name==='archive'){$('detailModal').close();note("Connection archived. Repository code is unchanged")}else{note({check:"Started a check without changing repositories",sync:"Sync requested",start:"Automatic sync enabled",pause:"Pause requested",restore:"Connection restored",discover:"Refreshing repository lists",detect:"Checking Gitea connections on the NAS without sending tokens"}[name]||"Saved")}return true}catch(e){note(e.message,true);return false}finally{pending.delete(key);refreshing=false;await refresh()}}
 function openDialog(id){clearMessage(id==='usersModal'?'usersMessage':id==='accountsModal'?'accountMessage':id==='addModal'?'addMessage':'detailMessage');$(id).showModal()}
 function openAccounts(){openDialog('accountsModal')}
-function openAdd(){if(!state||!state.github_saved||!state.gitea_saved){openAccounts();note("Connect your accounts to select repositories");return}openDialog('addModal');renderRepoOptions();if(!state.repos.github.length&&!state.discovering)action('discover')}
+function openAdd(){if(!state||!state.github_saved||!state.gitea_saved){openAccounts();note("Connect your accounts to select repositories");return}if(!$('addModal').open){$('newDirection').value=preferences.direction;$('newInterval').value=String(preferences.interval);openDialog('addModal')}renderRepoOptions();if(!state.repos.github.length&&!state.discovering)action('discover')}
 function openDetail(id){detailId=id;openDialog('detailModal');renderDetail(true)}
 function renderDetail(initial){const p=state.pairs.find(x=>x.id===detailId);if(!p){$('detailModal').close();return}$('detailTitle').textContent=p.github_repo.split('/').pop();$('detailStatus').replaceChildren(badge(p),el('span','muted',p.error||"Last checked "+timeText(p.last)));$('detailLinks').replaceChildren();for(const [text,url]of[["GitHub repository ↗",'https://github.com/'+p.github_repo],["NAS repository ↗",(state.gitea_base||'')+'/'+p.gitea_repo]]){const a=el('a','',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';$('detailLinks').append(a)}if(initial){$('editDirection').value=p.direction;$('editInterval').value=String(p.interval)}const locked=p.busy||!!p.queued||p.archived||pending.has(p.id);$('savePair').disabled=locked||!secure;$('editDirection').disabled=locked;$('editInterval').disabled=locked;$('archivePair').disabled=p.busy||!!p.queued||pending.has(p.id)||!secure;$('deletePair').disabled=p.busy||!!p.queued||pending.has(p.id)||!secure;$('archivePair').textContent=p.archived?"Restore connection":"Archive connection";$('detailPlan').replaceChildren();if(!p.plan.length)$('detailPlan').append(el('p','muted',"Run a connection check to see branch and tag results"));for(const r of p.plan){const row=el('div','ref '+r.status);row.append(el('b','',r.ref),el('span','',r.direction),el('p','',r.detail));$('detailPlan').append(row)}$('detailEvents').replaceChildren();for(const e of p.events){const li=el('li');li.append(el('time','',timeText(e.at)),el('span','',e.message));$('detailEvents').append(li)}}
 async function diagnostics(){const list=$('diagnosticsResults');list.replaceChildren(el('p','muted',"Checking NAS service status"));$('retryDiagnostics').disabled=true;try{const data=await api('diagnostics');list.replaceChildren();for(const c of data.checks){const row=el('div','ref');row.append(el('b','',c.title),el('span','tag '+(c.ok?'healthy':'error'),c.ok?"Verified":"Needs attention"),el('p','',c.detail));list.append(row)}}catch(e){list.replaceChildren(el('p','error',e.message))}finally{$('retryDiagnostics').disabled=false}}
@@ -42,10 +60,10 @@ for(const id of ['ghRepo','gtRepo'])$(id).addEventListener('change',()=>{$('addP
 $('detectNAS').addEventListener('click',()=>action('detect'));
 $('refreshRepos').addEventListener('click',()=>action('discover'));
 $('save').addEventListener('click',()=>{if(!$('consent').checked){note("Select the consent checkbox to store tokens on the NAS",true);return}action('save',{github_token:$('gh').value.trim(),gitea_token:$('gt').value.trim(),gitea_base:$('giteaEndpoint').value,gitea_user:$('giteaUser').value.trim(),consent:true})});
-$('addPair').addEventListener('click',()=>action('add',{github_repo:$('ghRepo').value,gitea_repo:$('gtRepo').value,direction:$('newDirection').value}));
+$('addPair').addEventListener('click',()=>action('add',{github_repo:$('ghRepo').value,gitea_repo:$('gtRepo').value,direction:$('newDirection').value,interval:Number($('newInterval').value)}));
 $('savePair').addEventListener('click',()=>action('update',{id:detailId,direction:$('editDirection').value,interval:Number($('editInterval').value)}));
 $('archivePair').addEventListener('click',()=>{const p=state.pairs.find(x=>x.id===detailId);if(p)action(p.archived?'restore':'archive',{id:p.id})});
-async function boot(){if(!secure){for(const id of ['gh','gt','consent','save'])$(id).disabled=true;note("Open this page over HTTPS",true);return}await refresh();setInterval(refresh,4000)}boot();
+async function boot(){if(!secure){for(const id of ['gh','gt','consent','save'])$(id).disabled=true;note("Open this page over HTTPS",true);return}await refresh();scheduleRefresh()}boot();
 
 function updateTokenLink(){const a=$('giteaTokenLink');try{const u=new URL($('giteaEndpoint').value);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw Error();u.pathname='/user/settings/applications';a.href=u.href;a.hidden=false}catch{a.removeAttribute('href');a.hidden=true}}
 $('giteaEndpoint').addEventListener('input',updateTokenLink);
@@ -62,3 +80,9 @@ $('logout').addEventListener('click',async()=>{try{await api('auth/logout',{});l
 $('createUser').addEventListener('click',()=>manageUser('create',$('newUsername').value.trim()));
 $('changeOwn').addEventListener('click',async()=>{if(usersBusy)return;if($('ownNew').value!==$('ownConfirm').value){$('usersMessage').textContent="The new passwords do not match";return}usersBusy=true;try{await api('auth/password',{current_password:$('ownCurrent').value,password:$('ownNew').value});location.replace('index.cgi')}catch(e){$('usersMessage').textContent=e.message}finally{usersBusy=false;for(const id of ['ownCurrent','ownNew','ownConfirm'])$(id).value=''}});
 $('usersModal').addEventListener('close',()=>{for(const id of ['ownCurrent','ownNew','ownConfirm','manageCurrent','newUserPassword'])$(id).value=''});
+
+$('navSettings').addEventListener('click',openSettings);
+$('saveSettings').addEventListener('click',saveSettings);
+$('resetSettings').addEventListener('click',()=>{fillSettings(preferenceDefaults,'ko');$('settingsMessage').textContent="Defaults loaded. Select Save settings to apply them."});
+$('refreshNow').addEventListener('click',refresh);
+window.addEventListener('pageshow',event=>{if(event.persisted){scheduleRefresh();refresh()}});

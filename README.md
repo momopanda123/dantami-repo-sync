@@ -22,7 +22,7 @@ Connect GitHub and Gitea, check their differences, then keep selected repository
 1. Download the `.spk` under **Assets** on the [latest release](https://github.com/momopanda123/dantami-repo-sync/releases/latest).
 2. In DSM, select **Package Center → Manual Install** and choose the file. Upgrade an existing installation without uninstalling it.
 3. When first prompted, create an **app administrator** in the installer. Use that app account to sign in over HTTPS.
-4. On v1.5.0 or later, choose **English** or **한국어** at the top right. The choice is saved in this browser.
+4. On v1.6.0 or later, open **Settings**, choose **English** or **한국어**, then **Save settings**. On the login page, use the language selector. The choice is saved in this browser.
 
 ![App login form, separate from DSM authentication](docs/images/01-sign-in.png)
 
@@ -120,6 +120,20 @@ Open **Diagnostics (실행 진단)** to check the app's service and private stor
 For support, share the app version, failing step and error message. Hide tokens, usernames, private server URLs and private repository names in screenshots.
 
 ---
+
+## Settings
+
+From v1.6.0, choose **Settings** in the left menu (also visible in the compact/mobile menu).
+
+- **Language:** 한국어 / English. Select a language and **Save settings**; the page reloads. The login page also retains its language selector.
+- **Dashboard refresh:** 4 seconds (default), 10/30/60 seconds, or manual. Use **Refresh** in the header at any time. This only changes browser polling; NAS sync schedules continue independently.
+- **New connection defaults:** sync direction and automatic check interval. These are preselected when connecting a new repository and can be overridden there. Existing pairs remain unchanged; new pairs still require a connection check and explicitly enabling automatic sync.
+- **Load defaults:** fills the settings form; only **Save settings** applies it. Cancel, Close or Escape discards unsaved settings.
+- **About:** shows the installed version. App accounts/passwords and service tokens remain in their existing account menus.
+
+Preferences are stored only in this browser, not synchronized across devices. Language cookies last up to one year; browser privacy settings can clear them earlier. No tokens or passwords are stored with these preferences. If browser storage is blocked, the app reports that it could not save.
+
+Older v1.4.1 screenshots below do not show this menu; update the SPK to v1.6.0 to use it.
 
 <details>
 <summary>Advanced behavior, security, build instructions and license</summary>

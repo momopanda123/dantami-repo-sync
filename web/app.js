@@ -2,6 +2,24 @@
 const $=id=>document.getElementById(id);
 let csrf='',state=null,filter='all',detailId='',repoVersion=-1,detectVersion=-1,refreshSeq=0,refreshing=false;
 const pending=new Set();const secure=location.protocol==='https:';
+const preferenceDefaults={refresh:4,direction:'both',interval:3};
+const preferenceKey='DantamiRepoSync.preferences.v1';
+function normalizePreferences(value){const p=value&&typeof value==='object'?value:{};return{refresh:[0,4,10,30,60].includes(p.refresh)?p.refresh:4,direction:['both','github_to_gitea','gitea_to_github'].includes(p.direction)?p.direction:'both',interval:[1,3,5,15,60,1440].includes(p.interval)?p.interval:3}}
+function loadPreferences(){try{return normalizePreferences(JSON.parse(localStorage.getItem(preferenceKey)))}catch{return{...preferenceDefaults}}}
+let preferences=loadPreferences(),refreshTimer=null;
+function scheduleRefresh(){if(refreshTimer!==null)clearInterval(refreshTimer);refreshTimer=null;if(secure&&preferences.refresh>0)refreshTimer=setInterval(()=>{if(!document.hidden)refresh()},preferences.refresh*1000)}
+function fillSettings(p,lang){$('languageSelect').value=lang;$('refreshInterval').value=String(p.refresh);$('defaultDirection').value=p.direction;$('defaultInterval').value=String(p.interval)}
+function openSettings(){fillSettings(preferences,document.documentElement.lang==='en'?'en':'ko');clearMessage('settingsMessage');if(!$('settingsModal').open)$('settingsModal').showModal()}
+function saveSettings(){
+ const lang=$('languageSelect').value,language=window.DantamiLanguage;
+ if(pending.size||usersBusy){$('settingsMessage').textContent='진행 중인 요청이 끝난 뒤 설정을 저장해 주세요';return}
+ if(!language||!language.confirmChange(lang))return;
+ const next=normalizePreferences({refresh:Number($('refreshInterval').value),direction:$('defaultDirection').value,interval:Number($('defaultInterval').value)});
+ let previous=null;try{previous=localStorage.getItem(preferenceKey);localStorage.setItem(preferenceKey,JSON.stringify(next));if(!language.save(lang))throw Error('cookie')}catch{try{if(previous===null)localStorage.removeItem(preferenceKey);else localStorage.setItem(preferenceKey,previous)}catch{}$('settingsMessage').textContent='브라우저 저장이 차단되어 있어요. 사이트의 쿠키와 저장 공간을 허용해 주세요';return}
+ preferences=next;scheduleRefresh();$('settingsModal').close();
+ if(lang!==language.current){location.reload();return}
+ note('설정을 저장했어요. 기존 저장소 연결은 그대로예요');refresh();
+}
 const names={idle:'확인 전',healthy:'정상',pending:'반영 대기',checking:'확인 중',syncing:'동기화 중',queued:'작업 대기',conflict:'충돌 확인',error:'연결 오류',paused:'일시정지'};
 const directions={both:'⇄ 양방향',github_to_gitea:'→ GitHub → NAS',gitea_to_github:'← NAS → GitHub'};
 function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n}
@@ -28,7 +46,7 @@ async function refresh(){if(refreshing)return;refreshing=true;const seq=++refres
 async function action(name,body={}){const key=body.id||name;if(pending.has(key))return false;pending.add(key);refreshSeq++;if(state)draw(state);try{const result=await api(name,body);if(name==='delete'){if($('detailModal').open)$('detailModal').close();note(result.warning||'연결과 내부 캐시를 제거했어요. 원본 저장소는 그대로예요',!!result.warning)}else if(name==='save'){$('gh').value='';$('gt').value='';note('연결 키를 저장했어요. 저장소 목록을 불러오고 있어요')}else if(name==='add'){$('addModal').close();note('저장소를 연결했어요. 카드에서 연결 확인을 눌러 주세요')}else if(name==='update'){note('설정을 저장했어요. 다시 확인한 뒤 자동 실행을 켜 주세요')}else if(name==='archive'){$('detailModal').close();note('연결을 보관했어요. 저장소 코드는 그대로예요')}else{note({check:'변경 없이 확인을 시작했어요',sync:'동기화를 요청했어요',start:'자동 실행을 켰어요',pause:'일시정지를 요청했어요',restore:'연결을 복원했어요',discover:'저장소 목록을 새로 불러오고 있어요',detect:'NAS에서 Gitea 연결을 확인하고 있어요. 토큰은 전송하지 않아요'}[name]||'저장했어요')}return true}catch(e){note(e.message,true);return false}finally{pending.delete(key);refreshing=false;await refresh()}}
 function openDialog(id){clearMessage(id==='usersModal'?'usersMessage':id==='accountsModal'?'accountMessage':id==='addModal'?'addMessage':'detailMessage');$(id).showModal()}
 function openAccounts(){openDialog('accountsModal')}
-function openAdd(){if(!state||!state.github_saved||!state.gitea_saved){openAccounts();note('계정을 먼저 연결하면 저장소 목록에서 고를 수 있어요');return}openDialog('addModal');renderRepoOptions();if(!state.repos.github.length&&!state.discovering)action('discover')}
+function openAdd(){if(!state||!state.github_saved||!state.gitea_saved){openAccounts();note('계정을 먼저 연결하면 저장소 목록에서 고를 수 있어요');return}if(!$('addModal').open){$('newDirection').value=preferences.direction;$('newInterval').value=String(preferences.interval);openDialog('addModal')}renderRepoOptions();if(!state.repos.github.length&&!state.discovering)action('discover')}
 function openDetail(id){detailId=id;openDialog('detailModal');renderDetail(true)}
 function renderDetail(initial){const p=state.pairs.find(x=>x.id===detailId);if(!p){$('detailModal').close();return}$('detailTitle').textContent=p.github_repo.split('/').pop();$('detailStatus').replaceChildren(badge(p),el('span','muted',p.error||'최근 확인 '+timeText(p.last)));$('detailLinks').replaceChildren();for(const [text,url]of[['GitHub 저장소 ↗','https://github.com/'+p.github_repo],['NAS 저장소 ↗',(state.gitea_base||'')+'/'+p.gitea_repo]]){const a=el('a','',text);a.href=url;a.target='_blank';a.rel='noopener noreferrer';$('detailLinks').append(a)}if(initial){$('editDirection').value=p.direction;$('editInterval').value=String(p.interval)}const locked=p.busy||!!p.queued||p.archived||pending.has(p.id);$('savePair').disabled=locked||!secure;$('editDirection').disabled=locked;$('editInterval').disabled=locked;$('archivePair').disabled=p.busy||!!p.queued||pending.has(p.id)||!secure;$('deletePair').disabled=p.busy||!!p.queued||pending.has(p.id)||!secure;$('archivePair').textContent=p.archived?'연결 복원':'연결 보관';$('detailPlan').replaceChildren();if(!p.plan.length)$('detailPlan').append(el('p','muted','연결 확인을 실행하면 브랜치와 태그별 결과가 나와요'));for(const r of p.plan){const row=el('div','ref '+r.status);row.append(el('b','',r.ref),el('span','',r.direction),el('p','',r.detail));$('detailPlan').append(row)}$('detailEvents').replaceChildren();for(const e of p.events){const li=el('li');li.append(el('time','',timeText(e.at)),el('span','',e.message));$('detailEvents').append(li)}}
 async function diagnostics(){const list=$('diagnosticsResults');list.replaceChildren(el('p','muted','NAS 실행 상태를 확인하고 있어요'));$('retryDiagnostics').disabled=true;try{const data=await api('diagnostics');list.replaceChildren();for(const c of data.checks){const row=el('div','ref');row.append(el('b','',c.title),el('span','tag '+(c.ok?'healthy':'error'),c.ok?'확인됨':'확인 필요'),el('p','',c.detail));list.append(row)}}catch(e){list.replaceChildren(el('p','error',e.message))}finally{$('retryDiagnostics').disabled=false}}
@@ -42,10 +60,10 @@ for(const id of ['ghRepo','gtRepo'])$(id).addEventListener('change',()=>{$('addP
 $('detectNAS').addEventListener('click',()=>action('detect'));
 $('refreshRepos').addEventListener('click',()=>action('discover'));
 $('save').addEventListener('click',()=>{if(!$('consent').checked){note('연결 키를 NAS에 저장하는 항목을 체크해 주세요',true);return}action('save',{github_token:$('gh').value.trim(),gitea_token:$('gt').value.trim(),gitea_base:$('giteaEndpoint').value,gitea_user:$('giteaUser').value.trim(),consent:true})});
-$('addPair').addEventListener('click',()=>action('add',{github_repo:$('ghRepo').value,gitea_repo:$('gtRepo').value,direction:$('newDirection').value}));
+$('addPair').addEventListener('click',()=>action('add',{github_repo:$('ghRepo').value,gitea_repo:$('gtRepo').value,direction:$('newDirection').value,interval:Number($('newInterval').value)}));
 $('savePair').addEventListener('click',()=>action('update',{id:detailId,direction:$('editDirection').value,interval:Number($('editInterval').value)}));
 $('archivePair').addEventListener('click',()=>{const p=state.pairs.find(x=>x.id===detailId);if(p)action(p.archived?'restore':'archive',{id:p.id})});
-async function boot(){if(!secure){for(const id of ['gh','gt','consent','save'])$(id).disabled=true;note('HTTPS 주소로 접속해 주세요',true);return}await refresh();setInterval(refresh,4000)}boot();
+async function boot(){if(!secure){for(const id of ['gh','gt','consent','save'])$(id).disabled=true;note('HTTPS 주소로 접속해 주세요',true);return}await refresh();scheduleRefresh()}boot();
 
 function updateTokenLink(){const a=$('giteaTokenLink');try{const u=new URL($('giteaEndpoint').value);if(u.protocol!=='https:'||u.username||u.password||u.search||u.hash)throw Error();u.pathname='/user/settings/applications';a.href=u.href;a.hidden=false}catch{a.removeAttribute('href');a.hidden=true}}
 $('giteaEndpoint').addEventListener('input',updateTokenLink);
@@ -62,3 +80,9 @@ $('logout').addEventListener('click',async()=>{try{await api('auth/logout',{});l
 $('createUser').addEventListener('click',()=>manageUser('create',$('newUsername').value.trim()));
 $('changeOwn').addEventListener('click',async()=>{if(usersBusy)return;if($('ownNew').value!==$('ownConfirm').value){$('usersMessage').textContent='새 비밀번호 확인이 일치하지 않아요';return}usersBusy=true;try{await api('auth/password',{current_password:$('ownCurrent').value,password:$('ownNew').value});location.replace('index.cgi')}catch(e){$('usersMessage').textContent=e.message}finally{usersBusy=false;for(const id of ['ownCurrent','ownNew','ownConfirm'])$(id).value=''}});
 $('usersModal').addEventListener('close',()=>{for(const id of ['ownCurrent','ownNew','ownConfirm','manageCurrent','newUserPassword'])$(id).value=''});
+
+$('navSettings').addEventListener('click',openSettings);
+$('saveSettings').addEventListener('click',saveSettings);
+$('resetSettings').addEventListener('click',()=>{fillSettings(preferenceDefaults,'ko');$('settingsMessage').textContent='기본값을 불러왔어요. 설정 저장을 눌러 적용하세요'});
+$('refreshNow').addEventListener('click',refresh);
+window.addEventListener('pageshow',event=>{if(event.persisted){scheduleRefresh();refresh()}});
