@@ -1,2 +1,5 @@
 .agents/
 dist/
+*.spk
+accounts.json
+state.json

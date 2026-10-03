@@ -247,7 +247,7 @@ func (a *App) handler(w http.ResponseWriter, r *http.Request) {
 		}
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		sendJSON(w, map[string]any{"version": "1.4.1", "csrf": a.csrf(sid), "github_saved": a.state.Settings.GithubToken != "", "gitea_saved": a.state.Settings.GiteaToken != "", "pairs": a.state.Pairs, "repos": a.repos, "discovering": a.discovering, "discovery_error": a.discoveryError, "discovery_notice": a.discoveryNotice, "repo_version": a.discoveryVersion, "user": r.Header.Get("X-App-User"), "role": r.Header.Get("X-App-Role"), "gitea_base": giteaBase(a.state.Settings), "gitea_user": a.state.Settings.GiteaUser, "nas_connections": a.nasConnections, "detecting": a.detecting, "detect_message": a.detectMessage, "detect_version": a.detectVersion})
+		sendJSON(w, map[string]any{"version": "1.5.0", "csrf": a.csrf(sid), "github_saved": a.state.Settings.GithubToken != "", "gitea_saved": a.state.Settings.GiteaToken != "", "pairs": a.state.Pairs, "repos": a.repos, "discovering": a.discovering, "discovery_error": a.discoveryError, "discovery_notice": a.discoveryNotice, "repo_version": a.discoveryVersion, "user": r.Header.Get("X-App-User"), "role": r.Header.Get("X-App-Role"), "gitea_base": giteaBase(a.state.Settings), "gitea_user": a.state.Settings.GiteaUser, "nas_connections": a.nasConnections, "detecting": a.detecting, "detect_message": a.detectMessage, "detect_version": a.detectVersion})
 		return
 	}
 	if r.Method != "POST" {

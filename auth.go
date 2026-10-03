@@ -143,6 +143,7 @@ func authJSON(r *http.Request, v any) error {
 	return d.Decode(v)
 }
 func (x *AuthApp) handler(w http.ResponseWriter, r *http.Request) {
+	w = withLocale(w, r)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
@@ -175,7 +176,7 @@ func (x *AuthApp) handler(w http.ResponseWriter, r *http.Request) {
 				asset = "login.html"
 			}
 		}
-		public := asset == "login.css" || asset == "login.js"
+		public := asset == "login.css" || asset == "login.js" || asset == "language.js"
 		if !ok && !public && asset != "login.html" {
 			fail(w, 401, "로그인이 필요해요")
 			return
@@ -183,6 +184,11 @@ func (x *AuthApp) handler(w http.ResponseWriter, r *http.Request) {
 		if asset != "index.html" && asset != "app.js" && asset != "dantami-app.css" && asset != "login.html" && !public {
 			http.NotFound(w, r)
 			return
+		}
+		if requestLanguage(r) == "en" {
+			if v, ok := map[string]string{"index.html": "index.en.html", "login.html": "login.en.html", "app.js": "app.en.js", "login.js": "login.en.js"}[asset]; ok {
+				asset = v
+			}
 		}
 		b, e := webFiles.ReadFile("web/" + asset)
 		if e != nil {

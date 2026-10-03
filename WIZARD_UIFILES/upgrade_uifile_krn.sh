@@ -1,28 +1,28 @@
 #!/bin/sh
 if [ -f /var/packages/DantamiRepoSync/var/private/accounts.json ]; then
  cat > "$SYNOPKG_TEMP_LOGFILE" <<'EXISTING'
-[{"step_title": "Preserve app accounts", "items": [{"desc": "Existing app accounts and passwords will be preserved."}]}]
+[{"step_title": "앱 계정 유지", "items": [{"desc": "기존 앱 계정과 비밀번호를 유지해요."}]}]
 EXISTING
 else
  cat > "$SYNOPKG_TEMP_LOGFILE" <<'WIZARDJSON'
 [
   {
-    "step_title": "Create an app administrator",
+    "step_title": "앱 관리자 계정 만들기",
     "items": [
       {
-        "desc": "Create an app account separate from DSM. If app accounts already exist, they are preserved and these fields do not reset them."
+        "desc": "DSM 계정과 별도로 사용할 앱 관리자 계정이에요. 이미 앱 계정이 있으면 기존 계정을 유지하며 아래 입력으로 변경하지 않아요."
       },
       {
         "type": "textfield",
         "subitems": [
           {
             "key": "app_admin_user",
-            "desc": "Administrator username",
+            "desc": "관리자 아이디",
             "validator": {
               "allowBlank": false,
               "regex": {
                 "expr": "/^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,39}$/",
-                "errorText": "Use 3–40 characters: letters, numbers, dots, underscores or hyphens"
+                "errorText": "영문/숫자/._- 3~40자를 입력하세요"
               }
             }
           }
@@ -33,14 +33,14 @@ else
         "subitems": [
           {
             "key": "app_admin_password",
-            "desc": "Password · 12–72 bytes",
+            "desc": "비밀번호 · 12~72바이트",
             "validator": {
               "allowBlank": false
             }
           },
           {
             "key": "app_admin_confirm",
-            "desc": "Confirm password",
+            "desc": "비밀번호 확인",
             "validator": {
               "allowBlank": false
             }

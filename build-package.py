@@ -27,17 +27,19 @@ while i<len(raw):
  for pattern in ['LICENSE*','COPYING*','NOTICE*']:
   for f in path.glob(pattern):
    if f.is_file():shutil.copy2(f,dest/f.name)
+shutil.copy2(root/'LICENSE',licenses/'DANTAMI-MIT-LICENSE')
 shutil.copy2(Path(subprocess.check_output(['go','env','GOROOT'],text=True).strip())/'LICENSE',licenses/'GO-LICENSE')
-(stage/'payload/사용안내.txt').write_text((root/'README.md').read_text(),encoding='utf-8')
+(stage/'payload/사용안내.txt').write_text((root/'README.ko.md').read_text(),encoding='utf-8')
+(stage/'payload/README_EN.md').write_text((root/'README.md').read_text(),encoding='utf-8')
 # Preserve source for audit without requiring user build steps.
 src=stage/'payload/source';src.mkdir()
-for f in ['access_check.go','access_check_test.go','auth.go','auth_test.go','main.go','app.go','discover.go','sync.go','sync_test.go','manager_test.go','nas_connection.go','nas_connection_test.go','diagnostics.go','cgi_test.go','go.mod','go.sum']:shutil.copy2(root/f,src/f)
+for f in ['i18n.go','i18n_test.go','access_check.go','access_check_test.go','auth.go','auth_test.go','main.go','app.go','discover.go','sync.go','sync_test.go','manager_test.go','nas_connection.go','nas_connection_test.go','diagnostics.go','cgi_test.go','go.mod','go.sum']:shutil.copy2(root/f,src/f)
 shutil.copytree(root/'web',src/'web')
 with tarfile.open(stage/'package.tgz','w:gz',format=tarfile.USTAR_FORMAT) as t:
  for path in sorted((stage/'payload').iterdir()):t.add(path,arcname=path.name)
 info=(stage/'INFO').read_text();info+='checksum="'+hashlib.md5((stage/'package.tgz').read_bytes()).hexdigest()+'"\n';(stage/'INFO').write_text(info)
 (root/'dist').mkdir(exist_ok=True)
-output=root/'dist/Dantami-Repo-Sync-1.4.1-DSM7-x86_64.spk'
+output=root/'dist/Dantami-Repo-Sync-1.5.0-DSM7-x86_64.spk'
 with tarfile.open(output,'w',format=tarfile.USTAR_FORMAT) as t:
  for n in ['INFO','package.tgz','scripts','conf','WIZARD_UIFILES','PACKAGE_ICON.PNG','PACKAGE_ICON_256.PNG']:t.add(stage/n,arcname=n)
 with tarfile.open(output) as t:

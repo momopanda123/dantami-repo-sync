@@ -63,7 +63,7 @@ func writeJSON(path string, value any) error {
 func sendJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	json.NewEncoder(w).Encode(v)
+	json.NewEncoder(w).Encode(localizedJSON(w, v))
 }
 func fail(w http.ResponseWriter, status int, s string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -139,6 +139,7 @@ var localServiceTransport http.RoundTripper = &http.Transport{DialContext: func(
 }}
 
 func cgiHandler(w http.ResponseWriter, r *http.Request) {
+	w = withLocale(w, r)
 	w.Header().Set("Cache-Control", "no-store")
 	route := "/"
 	q := r.URL.Query()

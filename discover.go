@@ -26,7 +26,7 @@ func fetchRepos(ctx context.Context, h *http.Client, base, token, side string) (
 		}
 		req.Header.Set("Authorization", scheme+token)
 		req.Header.Set("Accept", "application/json")
-		req.Header.Set("User-Agent", "Dantami-Repo-Sync/1.4.1")
+		req.Header.Set("User-Agent", "Dantami-Repo-Sync/1.5.0")
 		res, e := h.Do(req)
 		if e != nil {
 			return nil, errors.New(side)

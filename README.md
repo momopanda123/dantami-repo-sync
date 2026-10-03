@@ -1,59 +1,78 @@
-# Dantami Repo Sync — 1.4.1
+# Dantami Repo Sync
 
-Synology DSM 7 x86_64에서 여러 GitHub ↔ Gitea 저장소의 상태와 양방향 동기화를 관리하는 앱입니다.
-여러 저장소의 동기화를 한 화면에서 관리합니다.
+**English** · [한국어](README.ko.md)
 
-## 설치와 로그인
+Manage GitHub ↔ Gitea repository synchronization from a Synology DSM dashboard.
 
-1. 패키지 센터 → 수동 설치로 SPK를 설치하거나 기존 버전에 덮어 설치합니다.
-2. 설치/업데이트 화면에서 앱 관리자 아이디와 비밀번호를 직접 입력합니다. DSM 계정과는 별개입니다.
-3. 아이디: 영문·숫자·점·밑줄·하이픈 3~40자. 비밀번호: 12~72바이트, 확인 값과 일치해야 합니다.
-4. 설치 후 DSM을 강력 새로고침하고 앱을 엽니다. HTTPS 주소에서 앱 계정으로 로그인합니다.
-5. 앱 계정이 이미 만들어진 이후 업데이트는 기존 계정을 유지합니다. 설치 입력으로 계정을 재설정하지 않습니다.
+- Multiple repository pairs; bidirectional or one-way synchronization
+- A dashboard for status, schedules, conflicts, history and connection management
+- Independent app accounts with administrator and read-only viewer roles
+- Korean / English language switching on the login page and dashboard
+- No remote deletion, force push or automatic conflict merge
 
-외부 방문자가 첫 관리자 계정을 등록하는 웹 API는 없습니다. 처음부터 계정이 없으면 서비스는 접근을 허용하지 않습니다.
-아이디/비밀번호는 채팅에 보내지 말고 설치 화면 및 앱 화면에서 직접 입력하세요.
+## Install
 
-## 사용자와 권한
+Download the `.spk` from [Releases](https://github.com/momopanda123/dantami-repo-sync/releases).
+Supported target: **DSM 7, Intel/AMD x86_64**. ARM NAS models and DSM 6 are not supported.
 
-계정 관리에서 내 비밀번호 변경 및 관리자에 의한 사용자 추가·비활성화·활성화·비밀번호 재설정·삭제를 지원합니다.
-관리 작업은 관리자 본인의 현재 비밀번호를 다시 확인합니다.
-관리자는 연결·설정·동기화를 제어합니다. 조회자는 같은 대시보드를 읽기만 합니다. 사용자별 독립 저장소 공간은 아닙니다.
-자기 관리자 계정의 삭제/비활성화는 막습니다. 다른 관리자가 있는지 확인하고 계정을 관리하세요.
-이메일 비밀번호 복구와 공개 회원가입은 제공하지 않습니다.
+1. Open **Package Center → Manual Install** and select the SPK. Upgrade an existing installation without uninstalling it.
+2. On first installation, create an app administrator in the installation wizard. This account is separate from DSM.
+3. Open the app over **HTTPS** and sign in. Existing app accounts are preserved on subsequent upgrades.
+4. Use the language selector at the top right to choose **한국어** or **English**. The selection is saved in this browser. Switching language reloads the page and warns about unsaved password/token input.
 
-비밀번호는 bcrypt(cost 12) 해시만 저장합니다. 세션 쿠키는 Secure/HttpOnly/SameSite=Strict이며 8시간 후 만료됩니다.
-로그아웃·계정 비활성화·비밀번호 변경 시 관련 세션이 무효화됩니다. 서비스 재시작 시 다시 로그인해야 합니다.
-로그인 시도 제한, 동일 출처 검사 및 변경 요청 CSRF 검사를 적용합니다.
-DSM 로그인 API와 관리자 인증은 사용하지 않습니다. DSM은 설치·실행·웹 경로 제공에만 사용됩니다.
+Usernames accept 3–40 letters, numbers, dots, underscores or hyphens. Passwords must be 12–72 bytes and match the confirmation.
+There is no public first-user registration endpoint. If no initial app administrator is configured, the service fails closed.
 
-## 저장소 연결
+## Connect repositories
 
-계정 연결에서 Gitea HTTPS 서버 루트 주소와 Gitea 사용자 이름, GitHub/Gitea 접근 토큰을 입력합니다.
-새 설치는 빈 목록이며 개인 주소·계정·저장소 기본값이 없습니다.
-NAS 내부 Gitea는 자동 탐색된 127.0.0.1 연결을 선택할 수도 있습니다. 그 외 HTTP 서버, URL 하위 경로 설치는 지원하지 않습니다.
-토큰은 사용자가 지정한 해당 서비스로만 보냅니다. 서버 변경 시 Gitea 토큰을 다시 입력해야 합니다.
-두 서비스의 저장소 목록에서 쌍을 추가 → 연결 확인 → 자동 실행 켜기 순으로 사용합니다.
+1. Open **Connections** and enter your Gitea HTTPS server root URL and Gitea username.
+2. Create and enter your GitHub and Gitea access tokens. Keep tokens private and grant only required access.
+   - GitHub: use a fine-grained token for selected repositories, with **Contents: Read and write**. Add **Workflows: Read and write** if you sync workflow files.
+   - Gitea: repository read/write access is required. Ordinary personal tokens are based on the account's access. Use a dedicated limited-access Gitea account when repository-level isolation is needed.
+3. Confirm private NAS storage and select **Save connection and load repositories**.
+4. Select both repositories and the direction under **Connect repositories**.
+5. Run **Check connection**, review the result, then enable automatic sync.
 
-## 연결 관리
+New installations start with an empty list. No personal server, username or repository is preconfigured.
+Local Gitea discovery can identify servers on the NAS's loopback interface. Manually entered servers must use HTTPS and must not have a URL subpath.
+Changing servers requires re-entering the Gitea token rather than silently reusing it for a new destination.
 
-검색·상태 필터·상세·간격/방향 변경·일시정지·보관/복원·연결 제거를 지원합니다.
-연결 제거는 사용자 확인 후 앱의 연결 설정·내부 캐시·검사 기록만 지웁니다. 원본 원격 저장소는 지우지 않습니다.
-제거 후 다시 등록하면 이전 삭제 감지 기록 없이 새로 확인해야 합니다.
-이전 버전의 자동 등록 항목은 업그레이드 시 비공개 공간에 한 번 백업하고 목록에서 분리합니다. 사용자가 추가한 연결은 유지합니다.
+## Access checks
 
-## 동기화 범위
+An API listing or account-level `permissions.push` value alone does not establish effective token access.
+Candidate repositories are checked using authenticated, read-only Git upload-pack and receive-pack service advertisements. Only verified candidates are listed, and the selected pair is checked again before registration.
 
-커밋 조상 관계로 비교하며 원격 삭제·강제 푸시·임의 자동 병합은 하지 않습니다. 갈라진 브랜치/다른 태그는 검토가 필요합니다.
-한쪽 방향도 지원합니다. 동시에 최대 두 작업을 처리합니다.
-Git LFS 데이터, 이슈, PR, 릴리스 첨부, 서브모듈 저장소는 지원 대상이 아닙니다. LFS 포인터는 자동 반영을 중지합니다.
+These probes send no POST, commit, ref update or pack data. Expired lists and failed refreshes cannot be used for new registration.
+They do not introspect the provider's token-settings page or guarantee that every subsequent push will pass branch protection or workflow-specific policies.
+The current candidate model requires read/write service access on both sides, including for a one-way connection; read-only source tokens are not supported by this filtering model.
 
-## 개발
+## Accounts and management
 
-Go 1.27.1 이상, Python 3 + Pillow, 테스트용 Git CLI가 필요합니다.
+**User accounts** supports password changes and administrator-managed creation, disabling, enabling, password reset and deletion.
+Administrative account changes require the administrator's current password. Viewers can read the shared dashboard; repositories are not isolated into separate per-user workspaces.
+An administrator cannot disable or delete their own account. Public signup and email-based password recovery are not provided.
+
+Passwords are stored as bcrypt hashes (cost 12). Secure, HttpOnly, SameSite=Strict session cookies expire after eight hours. Logout, disabling an account and password changes invalidate applicable sessions. Service restarts require signing in again.
+The app uses its own authentication, not DSM administrator sessions. DSM provides package installation, lifecycle and web routing.
+
+Connections can be searched, paused, archived/restored or removed. **Remove connection** asks for confirmation and deletes only this app's connection settings, local cache and check history. Remote repository code is untouched.
+Re-adding a removed connection starts without its previous deletion-detection history and requires a fresh check.
+Legacy automatically seeded connections are removed from the active list during upgrade and backed up once in private NAS storage. User-added connections remain.
+
+## Sync scope and limitations
+
+Commit ancestry determines direction, not timestamps. New commits, branches and tags are copied when safe. Divergent branches and conflicting tags require manual review.
+Up to two jobs run concurrently. Destination-only changes are preserved in one-way mode.
+Git LFS data, issues, pull requests, release assets and submodule repositories are not synchronized. LFS pointers stop automatic updates rather than silently omitting their data.
+A network failure can leave partially completed work; subsequent checks compare actual remote states. There is no cross-server transaction.
+
+## Build and test
+
+Requirements: Go 1.27.1+, Python 3 with Pillow, and Git CLI for integration tests.
 
 ```sh
 mkdir -p .agents dist
+python3 generate-locales.py
 go test -race ./...
 go vet ./...
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o .agents/repo-sync .
@@ -61,22 +80,14 @@ go list -m -json all > .agents/modules.json
 python3 build-package.py
 ```
 
-설정과 비밀번호 해시·토큰은 NAS의 패키지 비공개 공간에만 저장합니다. 런타임 폴더를 공개 저장소에 포함하지 마세요.
-공개 소스에는 테스트용 가짜 계정 값만 있고 실행 중인 계정/서버 설정·로그·과거 Git 이력이 없습니다.
-의존성 라이선스는 SPK에 포함되며 프로젝트 자체의 공개 라이선스는 아직 선택하지 않았습니다.
+The reviewed catalog is `web/i18n.json`. Run `generate-locales.py` after editing UI strings; missing translations fail generation. Generated English UI assets are checked in so ordinary Go builds can embed them.
+The package includes dependency licenses. Runtime account data, tokens, caches, logs and development scratch files must not be committed.
 
-## 검증 한계
+## Verification
 
-로컬 계정/세션/권한/CSRF/로그인 제한, Git 동기화 및 DOM 동작 검사 등을 수행합니다.
-실제 DSM 설치 마법사, CGI 실행 계정/소켓 접근, 사용자 브라우저의 렌더링과 실제 원격 동기화는 별도 확인이 필요합니다.
-이전 버전의 DSM 인증 검증 결과를 이 버전의 앱 계정 로그인 성공으로 간주하지 않습니다.
+Local tests cover synchronization, account/session security, access filtering, upgrade behavior and localization. UI checks cover key DOM flows and style isolation.
+Installation and synchronization have been reported working on an initial deployment. This is not comprehensive validation across DSM versions, NAS hardware, proxies, browser rendering or all remote protection policies.
 
-## 저장소 목록의 접근 확인
+## License
 
-API의 저장소 목록이나 계정의 permissions.push 값만으로 토큰 권한을 단정하지 않습니다.
-각 후보에 대해 현재 토큰으로 Git upload-pack / receive-pack 광고를 GET으로 읽고, 유효한 Git 응답이 확인된 저장소만 목록에 올립니다.
-등록 직전에도 해당 토큰의 연결을 다시 확인합니다. 오래된/확인 중인 목록이나 확인 실패 항목은 등록하지 않습니다.
-검사 중에는 POST, 커밋, 브랜치 변경 등 원격 쓰기를 수행하지 않습니다. 새로고침 실패 시 이전 목록을 재사용하지 않습니다.
-목록은 양쪽 읽기·쓰기 토큰을 사용하는 이 앱의 설정 기준입니다. 읽기 전용 토큰은 단방향 원본 용도라도 현재 후보에서 제외됩니다.
-이 검사는 토큰 설정 화면의 선택 목록을 직접 읽는 것이 아니며, 브랜치 보호·워크플로별 권한·후속 정책으로 실제 푸시는 거부될 수 있습니다.
-서버가 토큰에 계정 전체 저장소 권한을 부여했다면 여러 저장소가 확인될 수 있습니다.
+[MIT](LICENSE) · Copyright © 2026 momopanda123
