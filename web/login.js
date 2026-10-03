@@ -1,0 +1,5 @@
+'use strict';
+const form=document.getElementById('loginForm'),button=document.getElementById('loginButton'),error=document.getElementById('loginError'),password=document.getElementById('password');
+document.getElementById('showPassword').addEventListener('click',e=>{password.type=password.type==='password'?'text':'password';e.currentTarget.textContent=password.type==='password'?'보기':'숨기기'});
+if(location.protocol!=='https:'){button.disabled=true;error.textContent='로그인은 HTTPS 주소에서만 가능해요'}
+form.addEventListener('submit',async e=>{e.preventDefault();if(button.disabled)return;button.disabled=true;error.textContent='';try{const r=await fetch('index.cgi?action=auth/login',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('username').value.trim(),password:password.value})});const j=await r.json();if(!r.ok)throw Error(j.error||'로그인하지 못했어요');password.value='';location.replace('index.cgi')}catch(e){error.textContent=e.message;password.value=''}finally{button.disabled=location.protocol!=='https:'}});

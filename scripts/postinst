@@ -1,0 +1,9 @@
+#!/bin/sh
+umask 077
+/var/packages/DantamiRepoSync/target/bin/repo-sync --init-admin || {
+ if [ -n "${SYNOPKG_TEMP_LOGFILE:-}" ]; then
+  printf '%s\n' '앱 관리자 계정 생성 실패: 아이디와 12~72바이트 비밀번호 및 확인 값을 점검해 주세요.' > "$SYNOPKG_TEMP_LOGFILE"
+ fi
+ exit 1
+}
+exit 0
