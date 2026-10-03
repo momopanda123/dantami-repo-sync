@@ -321,3 +321,192 @@ func TestNewConnectionIntervalPreference(t *testing.T) {
 		})
 	}
 }
+
+// Recreate saved state so this exercises startup rather than only a live worker.
+func restartedAutoApp(t *testing.T, interval int) *App {
+	t.Helper()
+	d := t.TempDir()
+	p := newPair("0123456789abcdef01234567", "sample/active", "sample/active", "both")
+	p.Enabled, p.Checked, p.Interval = true, true, interval
+	p.Next = time.Now().Add(24 * time.Hour)
+	off := newPair("1123456789abcdef01234567", "sample/off", "sample/off", "both")
+	archived := newPair("2123456789abcdef01234567", "sample/archive", "sample/archive", "both")
+	archived.Enabled, archived.Archived = true, true
+	if e := writeJSON(filepath.Join(d, "state.json"), State{Version: 3, Settings: Settings{GiteaBase: "https://git.example.com"}, Pairs: []*Pair{p, off, archived}}); e != nil {
+		t.Fatal(e)
+	}
+	a, e := newApp(d)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return a
+}
+
+func waitPairIdle(t *testing.T, a *App, p *Pair) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		a.mu.Lock()
+		done := !p.Busy && p.Queued == ""
+		a.mu.Unlock()
+		if done {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("worker did not finish")
+}
+
+func TestRestartAutomaticallySyncsImmediatelyAfterCheck(t *testing.T) {
+	for _, interval := range []int{3, 60, 1440} {
+		t.Run(fmt.Sprint(interval), func(t *testing.T) {
+			a := restartedAutoApp(t, interval)
+			calls := make(chan bool, 4)
+			a.run = func(_ context.Context, _ Settings, _ map[string]bool, apply bool, _, gh, _ string) (SyncResult, error) {
+				if gh != "https://github.com/sample/active.git" {
+					return SyncResult{}, fmt.Errorf("unexpected inactive pair")
+				}
+				calls <- apply
+				if apply {
+					return SyncResult{Applied: 1}, nil
+				}
+				return SyncResult{Pending: 1}, nil
+			}
+			a.tick()
+			for _, want := range []bool{false, true} {
+				select {
+				case got := <-calls:
+					if got != want {
+						t.Fatalf("apply = %v, want %v", got, want)
+					}
+				case <-time.After(3 * time.Second):
+					t.Fatal("scheduled check did not immediately lead to sync")
+				}
+			}
+			p := a.state.Pairs[0]
+			waitPairIdle(t, a, p)
+			a.mu.Lock()
+			if !p.Enabled || !p.Checked || p.Phase != "healthy" || time.Until(p.Next) < time.Duration(interval)*time.Minute-5*time.Second {
+				t.Errorf("normal interval not restored: %+v", p)
+			}
+			a.mu.Unlock()
+			a.tick()
+			select {
+			case <-calls:
+				t.Fatal("unexpected immediate repeat or inactive-pair run")
+			default:
+			}
+		})
+	}
+}
+
+func TestScheduledCheckDoesNotSyncOnErrorNoChangesOrPause(t *testing.T) {
+	for _, scenario := range []string{"error", "no_changes", "conflict_only", "pause"} {
+		t.Run(scenario, func(t *testing.T) {
+			a := restartedAutoApp(t, 60)
+			calls := make(chan bool, 4)
+			release := make(chan struct{})
+			a.run = func(ctx context.Context, _ Settings, _ map[string]bool, apply bool, _, _, _ string) (SyncResult, error) {
+				calls <- apply
+				if scenario == "pause" {
+					<-release
+					return SyncResult{Pending: 1}, nil
+				}
+				if scenario == "error" {
+					return SyncResult{}, fmt.Errorf("github")
+				}
+				if scenario == "conflict_only" {
+					return SyncResult{Blocked: 1}, nil
+				}
+				return SyncResult{}, nil
+			}
+			a.tick()
+			select {
+			case apply := <-calls:
+				if apply {
+					t.Fatal("first run should be a check")
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatal("no startup check")
+			}
+			p := a.state.Pairs[0]
+			if scenario == "pause" {
+				if w := post(t, a, "/pause", map[string]string{"id": p.ID}); w.Code != 200 {
+					t.Fatal(w.Code)
+				}
+				close(release)
+			}
+			waitPairIdle(t, a, p)
+			select {
+			case <-calls:
+				t.Fatal("unsafe or unnecessary follow-up sync")
+			default:
+			}
+		})
+	}
+}
+
+func TestExplicitCheckRemainsReadOnlyWithAutomaticSyncEnabled(t *testing.T) {
+	a := restartedAutoApp(t, 60)
+	calls := make(chan bool, 4)
+	a.run = func(_ context.Context, _ Settings, _ map[string]bool, apply bool, _, _, _ string) (SyncResult, error) {
+		calls <- apply
+		return SyncResult{Pending: 1}, nil
+	}
+	p := a.state.Pairs[0]
+	a.mu.Lock()
+	a.begin(p, false)
+	a.mu.Unlock()
+	waitPairIdle(t, a, p)
+	select {
+	case apply := <-calls:
+		if apply {
+			t.Fatal("manual check applied changes")
+		}
+	default:
+		t.Fatal("no check")
+	}
+	select {
+	case <-calls:
+		t.Fatal("manual check unexpectedly triggered a sync")
+	default:
+	}
+}
+
+func TestRestartFollowupDoesNotRunAfterStateSaveFailure(t *testing.T) {
+	a := restartedAutoApp(t, 60)
+	calls := make(chan bool, 4)
+	release := make(chan struct{})
+	a.run = func(_ context.Context, _ Settings, _ map[string]bool, apply bool, _, _, _ string) (SyncResult, error) {
+		calls <- apply
+		<-release
+		return SyncResult{Pending: 1}, nil
+	}
+	a.tick()
+	select {
+	case <-calls:
+	case <-time.After(3 * time.Second):
+		t.Fatal("no startup check")
+	}
+	bad := filepath.Join(t.TempDir(), "not-a-directory")
+	if e := os.WriteFile(bad, []byte("fixture"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	a.mu.Lock()
+	a.dir = bad
+	a.mu.Unlock()
+	close(release)
+	p := a.state.Pairs[0]
+	waitPairIdle(t, a, p)
+	a.mu.Lock()
+	enabled, phase := p.Enabled, p.Phase
+	a.mu.Unlock()
+	if enabled || phase != "error" {
+		t.Fatal("save failure did not stop automatic sync")
+	}
+	select {
+	case <-calls:
+		t.Fatal("sync ran after persistence failure")
+	default:
+	}
+}

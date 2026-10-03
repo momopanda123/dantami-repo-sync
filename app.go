@@ -541,6 +541,12 @@ func (a *App) handler(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]bool{"ok": true})
 }
 func (a *App) begin(p *Pair, apply bool) {
+	a.beginJob(p, apply, false)
+}
+
+// Scheduled checks after startup or recovery may immediately apply safe changes.
+// Explicit user checks remain read-only, even when automatic execution is enabled.
+func (a *App) beginJob(p *Pair, apply, syncAfterCheck bool) {
 	active := 0
 	for _, other := range a.state.Pairs {
 		if other.Busy {
@@ -617,6 +623,12 @@ func (a *App) begin(p *Pair, apply bool) {
 			p.Checked = false
 			p.Error = "상태 저장 실패로 자동 실행을 중지했어요"
 			p.Phase = "error"
+			return
+		}
+		if syncAfterCheck && !apply && e == nil && result.Pending > 0 && p.Enabled && !p.Archived {
+			// The completed check released its worker slot. begin enforces the same
+			// two-worker limit and syncRepos rechecks remote refs before pushing.
+			a.begin(p, true)
 		}
 	}()
 }
@@ -643,7 +655,7 @@ func (a *App) tick() {
 			return
 		}
 		if !p.Archived && p.Enabled && !p.Busy && (p.Next.IsZero() || time.Now().After(p.Next)) {
-			a.begin(p, p.Checked)
+			a.beginJob(p, p.Checked, !p.Checked)
 			active++
 		}
 	}

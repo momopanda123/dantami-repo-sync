@@ -3,6 +3,13 @@
 Published version tags and installer assets are retained. New versions are added as separate releases; existing releases are not overwritten.
 배포된 버전의 태그와 설치파일을 보존하며 새 버전은 별도 릴리즈로 추가합니다.
 
+## v1.6.2
+
+- After service restart, enabled repository pairs check first and immediately synchronize safe pending changes
+- Resume the configured interval after synchronization; explicit checks remain read-only
+- Preserve pause, conflict, failed-check and state-persistence safeguards
+- 서비스 재시작 후 자동 실행 중인 연결은 첫 비교 직후 안전한 변경을 바로 반영하고 이후 설정 주기로 실행
+
 ## v1.6.1
 
 - Match Settings navigation to the existing sidebar styles; remove its special border and color

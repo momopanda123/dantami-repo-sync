@@ -326,6 +326,6 @@
   "설정을 저장했어요. 기존 저장소 연결은 그대로예요": "Settings saved. Existing repository connections are unchanged.",
   "기본값을 불러왔어요. 설정 저장을 눌러 적용하세요": "Defaults loaded. Select Save settings to apply them.",
   "자동 확인 간격을 확인해 주세요": "Check the automatic check interval.",
-  "v1.6.1 · 동시에 최대 2개 처리 · Git LFS / 이슈 / PR / 릴리스 파일은 별도": "v1.6.1 · Up to 2 concurrent jobs · Git LFS, issues, PRs and release assets are not synchronized",
+  "v1.6.2 · 동시에 최대 2개 처리 · Git LFS / 이슈 / PR / 릴리스 파일은 별도": "v1.6.2 · Up to 2 concurrent jobs · Git LFS, issues, PRs and release assets are not synchronized",
   "⚙   설정": "⚙   Settings"
 }
