@@ -39,7 +39,7 @@ with tarfile.open(stage/'package.tgz','w:gz',format=tarfile.USTAR_FORMAT) as t:
  for path in sorted((stage/'payload').iterdir()):t.add(path,arcname=path.name)
 info=(stage/'INFO').read_text();info+='checksum="'+hashlib.md5((stage/'package.tgz').read_bytes()).hexdigest()+'"\n';(stage/'INFO').write_text(info)
 (root/'dist').mkdir(exist_ok=True)
-output=root/'dist/Dantami-Repo-Sync-1.6.0-DSM7-x86_64.spk'
+output=root/'dist/Dantami-Repo-Sync-1.6.1-DSM7-x86_64.spk'
 with tarfile.open(output,'w',format=tarfile.USTAR_FORMAT) as t:
  for n in ['INFO','package.tgz','scripts','conf','WIZARD_UIFILES','PACKAGE_ICON.PNG','PACKAGE_ICON_256.PNG']:t.add(stage/n,arcname=n)
 with tarfile.open(output) as t:

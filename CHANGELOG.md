@@ -3,6 +3,12 @@
 Published version tags and installer assets are retained. New versions are added as separate releases; existing releases are not overwritten.
 배포된 버전의 태그와 설치파일을 보존하며 새 버전은 별도 릴리즈로 추가합니다.
 
+## v1.6.1
+
+- Match Settings navigation to the existing sidebar styles; remove its special border and color
+- Show only the selected language in the Settings label
+- 설정 메뉴의 별도 테두리·강조색과 한영 혼합 표기를 제거하고 기존 메뉴와 통일
+
 ## v1.6.0
 
 - Add a discoverable Settings menu with Korean/English language selection and installed version

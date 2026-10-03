@@ -1,5 +1,5 @@
 package="DantamiRepoSync"
-version="1.6.0-0011"
+version="1.6.1-0012"
 displayname="Dantami Repo Sync"
 maintainer="Dantami"
 description="Manage safe GitHub and Gitea repository synchronization on Synology DSM, with independent app accounts and Korean/English UI."
