@@ -3,6 +3,12 @@
 Published version tags and installer assets are retained. New versions are added as separate releases; existing releases are not overwritten.
 배포된 버전의 태그와 설치파일을 보존하며 새 버전은 별도 릴리즈로 추가합니다.
 
+## v1.6.3
+
+- Declare Go 1.26.0 as the minimum supported toolchain so SynoCommunity can build the unpatched upstream source with Go 1.26.8.
+- Remove the unsupported third-party DSM 7 beta flag from the manual package metadata.
+- Preserve the existing DantamiRepoSync package identifier and all previous releases.
+
 ## v1.6.2
 
 - After service restart, enabled repository pairs check first and immediately synchronize safe pending changes

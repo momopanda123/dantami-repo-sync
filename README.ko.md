@@ -177,7 +177,7 @@ Git LFS 데이터, 이슈, PR, 릴리스 첨부, 서브모듈 저장소는 지�
 
 ## 개발
 
-Go 1.27.1 이상, Python 3 + Pillow, 테스트용 Git CLI가 필요합니다.
+Go 1.26.0 이상, Python 3 + Pillow, 테스트용 Git CLI가 필요합니다.
 
 ```sh
 mkdir -p .agents dist

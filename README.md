@@ -171,7 +171,7 @@ A network failure can leave partially completed work; subsequent checks compare 
 
 ## Build and test
 
-Requirements: Go 1.27.1+, Python 3 with Pillow, and Git CLI for integration tests.
+Requirements: Go 1.26.0+, Python 3 with Pillow, and Git CLI for integration tests.
 
 ```sh
 mkdir -p .agents dist
